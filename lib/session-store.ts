@@ -1,6 +1,8 @@
-// In-memory session store.
-// Works in local dev and on Vercel (warm instances retain state).
-// If a cold-start clears the store, the user clicks "Regenerate session ID."
+/**
+ * Session store: Upstash Redis in production, in-memory in local dev.
+ * Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN in Vercel env vars.
+ * Free tier at upstash.com — no credit card needed.
+ */
 
 import { nanoid } from "./utils";
 
@@ -25,40 +27,78 @@ interface Session extends SessionConfig {
   lastPing: number;
 }
 
-const store = new Map<string, Session>();
+const SESSION_TTL = 60 * 60 * 4; // 4 hours
+const useRedis = !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
 
-export function createSession(config: SessionConfig): string {
+// ── Local fallback ────────────────────────────────────────────────────────────
+const localStore = new Map<string, Session>();
+
+// ── Redis helpers ─────────────────────────────────────────────────────────────
+async function redisGet(key: string): Promise<Session | null> {
+  const { Redis } = await import("@upstash/redis");
+  const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL!,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+  });
+  return redis.get<Session>(key);
+}
+
+async function redisSet(key: string, value: Session): Promise<void> {
+  const { Redis } = await import("@upstash/redis");
+  const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL!,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+  });
+  await redis.set(key, value, { ex: SESSION_TTL });
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+export async function createSession(config: SessionConfig): Promise<string> {
   const id = nanoid(16);
-  store.set(id, { ...config, events: [], connectedAt: Date.now(), lastPing: Date.now() });
+  const session: Session = { ...config, events: [], connectedAt: Date.now(), lastPing: Date.now() };
+  if (useRedis) await redisSet(id, session);
+  else localStore.set(id, session);
   return id;
 }
 
-export function updateSession(id: string, config: Partial<SessionConfig>) {
-  const s = store.get(id);
-  if (s) store.set(id, { ...s, ...config });
+export async function updateSession(id: string, config: Partial<SessionConfig>): Promise<void> {
+  const s = await getSession(id);
+  if (!s) return;
+  const updated = { ...s, ...config };
+  if (useRedis) await redisSet(id, updated);
+  else localStore.set(id, updated);
 }
 
-export function getSession(id: string): Session | undefined {
-  return store.get(id);
+export async function getSession(id: string): Promise<Session | null> {
+  if (useRedis) return redisGet(id);
+  return localStore.get(id) ?? null;
 }
 
-export function pingSession(id: string) {
-  const s = store.get(id);
-  if (s) s.lastPing = Date.now();
+export async function pingSession(id: string): Promise<void> {
+  const s = await getSession(id);
+  if (!s) return;
+  s.lastPing = Date.now();
+  if (useRedis) await redisSet(id, s);
+  else localStore.set(id, s);
 }
 
-export function pushEvent(sessionId: string, type: NotebookEvent["type"], data: unknown): boolean {
-  const s = store.get(sessionId);
+export async function pushEvent(sessionId: string, type: NotebookEvent["type"], data: unknown): Promise<boolean> {
+  const s = await getSession(sessionId);
   if (!s) return false;
   s.events.push({ id: nanoid(), type, data, ts: Date.now() });
+  if (useRedis) await redisSet(sessionId, s);
+  else localStore.set(sessionId, s);
   return true;
 }
 
-export function drainEvents(sessionId: string): NotebookEvent[] {
-  const s = store.get(sessionId);
+export async function drainEvents(sessionId: string): Promise<NotebookEvent[]> {
+  const s = await getSession(sessionId);
   if (!s) return [];
   const events = [...s.events];
   s.events = [];
   s.lastPing = Date.now();
+  if (useRedis) await redisSet(sessionId, s);
+  else localStore.set(sessionId, s);
   return events;
 }

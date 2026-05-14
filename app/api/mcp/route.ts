@@ -110,7 +110,7 @@ async function handleExecuteQuery(
   args: { session_id: string; sql: string; title?: string },
   baseUrl: string
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const session = getSession(args.session_id);
+  const session = await getSession(args.session_id);
   if (!session) throw new Error("Session not found. Copy a fresh Session ID from the ConnectPanel.");
 
   const res = await fetch(`${baseUrl}/api/metabase/query`, {
@@ -130,7 +130,7 @@ async function handleExecuteQuery(
   const columns: string[] = data.columns ?? [];
   const rows: Record<string, unknown>[] = data.rows ?? [];
 
-  pushEvent(args.session_id, "add_cells", {
+  await pushEvent(args.session_id, "add_cells", {
     sql: args.sql,
     title: args.title ?? "",
     result: data,
@@ -159,10 +159,10 @@ async function handleAddFilter(args: {
   defaultValue?: string;
   options?: string[];
 }): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const session = getSession(args.session_id);
+  const session = await getSession(args.session_id);
   if (!session) throw new Error("Session not found.");
 
-  pushEvent(args.session_id, "add_filter", {
+  await pushEvent(args.session_id, "add_filter", {
     name: args.name,
     label: args.label,
     type: args.type,
@@ -184,10 +184,10 @@ async function handleAddMarkdown(args: {
   session_id: string;
   content: string;
 }): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const session = getSession(args.session_id);
+  const session = await getSession(args.session_id);
   if (!session) throw new Error("Session not found.");
 
-  pushEvent(args.session_id, "add_markdown", { content: args.content });
+  await pushEvent(args.session_id, "add_markdown", { content: args.content });
 
   return { content: [{ type: "text", text: "Markdown cell added to notebook." }] };
 }
@@ -196,10 +196,10 @@ async function handleRemoveCell(args: {
   session_id: string;
   cell_id: string;
 }): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const session = getSession(args.session_id);
+  const session = await getSession(args.session_id);
   if (!session) throw new Error("Session not found.");
 
-  pushEvent(args.session_id, "remove_cell", { cellId: args.cell_id });
+  await pushEvent(args.session_id, "remove_cell", { cellId: args.cell_id });
 
   return { content: [{ type: "text", text: `Cell ${args.cell_id} removed.` }] };
 }
@@ -207,7 +207,7 @@ async function handleRemoveCell(args: {
 async function handleListCells(args: {
   session_id: string;
 }): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const session = getSession(args.session_id);
+  const session = await getSession(args.session_id);
   if (!session) throw new Error("Session not found.");
 
   // We can't directly read the browser notebook state from the server,
