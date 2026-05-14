@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { metabaseHeaders } from "@/lib/metabase-headers";
 
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const metabaseUrl = req.headers.get("x-metabase-url");
   const token = req.headers.get("x-metabase-token");

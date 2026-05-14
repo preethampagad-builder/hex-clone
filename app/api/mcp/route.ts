@@ -8,6 +8,7 @@ import { getSession, pushEvent } from "@/lib/session-store";
 import { metabaseHeaders } from "@/lib/metabase-headers";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 // ── MCP protocol types ────────────────────────────────────────────────────────
 
