@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hex Clone — Internal Analytics Tool
 
-## Getting Started
+A Hex-like internal analytics notebook built with Next.js, Claude AI, Metabase, and Sphinx AI.
 
-First, run the development server:
+## Features
+
+- **Notebook with cells** — SQL editor, result tables, auto-charts, interactive filters, markdown
+- **AI chat assistant** — powered by Claude, uses Sphinx for business context and Metabase for data
+- **Filter widgets** — date range, text, multi-select filters with `{{variable}}` SQL interpolation
+- **Auto-visualization** — AI decides chart type (bar, line, area, pie, scatter) from query results
+- **Per-user credentials** — each user enters their own API keys, stored in browser localStorage only
+
+---
+
+## Local setup
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Open http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Enter credentials in the popup that appears on first load.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy to Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Push to GitHub, then import in Vercel. No environment variables needed — credentials are user-provided via the UI. Share the Vercel URL with your team.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Credentials each user needs
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Credential | Where to get it |
+|---|---|
+| **Claude API Key** | console.anthropic.com → API Keys |
+| **Metabase URL** | Your Metabase URL e.g. `https://analytics.yourcompany.com` |
+| **Metabase Email + Password** | Your Metabase login |
+| **Sphinx URL** | `https://api.prod.sphinx.ai/mcp/project/<your-project-id>` |
+| **Sphinx API Key** | Optional — leave blank if URL-only access works |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Credentials stay in your browser's localStorage and are never logged or sent anywhere else.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Filter variables in SQL
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Add a filter cell (e.g. variable `date_range`), then reference it in SQL:
+
+```sql
+WHERE created_at BETWEEN '{{date_range_from}}' AND '{{date_range_to}}'
+```
+
+Changing the filter reruns connected SQL cells automatically.
+
+---
+
+## Stack
+
+Next.js 16 · Claude claude-sonnet-4-6 · Sphinx AI MCP · Metabase API · Recharts · CodeMirror 6 · Zustand · Tailwind · Vercel
