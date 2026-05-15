@@ -5,10 +5,11 @@ import { useCredentials } from "@/hooks/useCredentials";
 import { useNotebookStore } from "@/store/notebook";
 import { CredentialsModal } from "@/components/CredentialsModal";
 import { Notebook } from "@/components/notebook/Notebook";
+import { AppBuilder } from "@/components/AppBuilder";
 import { ConnectPanel } from "@/components/ConnectPanel";
 import { DatabaseSelector } from "@/components/DatabaseSelector";
 import { MetabaseDatabase, Credentials, QueryResult } from "@/lib/types";
-import { Settings } from "lucide-react";
+import { Settings, Code2, LayoutDashboard } from "lucide-react";
 
 export default function Home() {
   const {
@@ -20,6 +21,7 @@ export default function Home() {
   const [isLoadingSchema, setIsLoadingSchema] = useState(false);
   const [allDatabases, setAllDatabases] = useState<MetabaseDatabase[]>([]);
   const [selectedDb, setSelectedDb] = useState<MetabaseDatabase | null>(null);
+  const [activeTab, setActiveTab] = useState<"notebook" | "app">("notebook");
 
   const { setDatabase, selectedDatabaseId, updateCell, applyFiltersToSql } = useNotebookStore();
 
@@ -136,6 +138,22 @@ export default function Home() {
           onSelect={handleSelectDb}
           isLoadingSchema={isLoadingSchema}
         />
+        <div className="h-4 w-px bg-zinc-800" />
+        {/* Notebook / App Builder tabs */}
+        <div className="flex items-center gap-0.5 rounded-lg bg-zinc-800/60 p-0.5">
+          <button
+            onClick={() => setActiveTab("notebook")}
+            className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${activeTab === "notebook" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-zinc-200"}`}
+          >
+            <Code2 size={11} /> Notebook
+          </button>
+          <button
+            onClick={() => setActiveTab("app")}
+            className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${activeTab === "app" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-zinc-200"}`}
+          >
+            <LayoutDashboard size={11} /> App Builder
+          </button>
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setShowModal(true)}
@@ -149,34 +167,40 @@ export default function Home() {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 overflow-hidden">
-          <Notebook
-            metabaseUrl={credentials.metabaseUrl}
-            metabaseToken={metabaseToken ?? ""}
-            databaseId={selectedDatabaseId ?? 0}
-            onRunCell={handleRunCell}
-          />
-        </div>
-        <div className="w-[380px] shrink-0 overflow-hidden">
-          {isConfigured ? (
-            <ConnectPanel
+          {activeTab === "notebook" ? (
+            <Notebook
               metabaseUrl={credentials.metabaseUrl}
               metabaseToken={metabaseToken ?? ""}
-              metabaseAuthType={metabaseAuthType}
               databaseId={selectedDatabaseId ?? 0}
-              databaseName={selectedDb?.name ?? ""}
-              onOpenSettings={() => setShowModal(true)}
+              onRunCell={handleRunCell}
             />
           ) : (
-            <div className="flex h-full items-center justify-center p-8 text-center border-l border-zinc-800">
-              <div>
-                <p className="text-zinc-500 text-sm">Connect Metabase to start.</p>
-                <button onClick={() => setShowModal(true)} className="mt-3 rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-500">
-                  Connect
-                </button>
-              </div>
-            </div>
+            <AppBuilder />
           )}
         </div>
+        {activeTab === "notebook" && (
+          <div className="w-[380px] shrink-0 overflow-hidden">
+            {isConfigured ? (
+              <ConnectPanel
+                metabaseUrl={credentials.metabaseUrl}
+                metabaseToken={metabaseToken ?? ""}
+                metabaseAuthType={metabaseAuthType}
+                databaseId={selectedDatabaseId ?? 0}
+                databaseName={selectedDb?.name ?? ""}
+                onOpenSettings={() => setShowModal(true)}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center p-8 text-center border-l border-zinc-800">
+                <div>
+                  <p className="text-zinc-500 text-sm">Connect Metabase to start.</p>
+                  <button onClick={() => setShowModal(true)} className="mt-3 rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-500">
+                    Connect
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {showModal && <CredentialsModal onSave={handleCredentialsSave} />}
