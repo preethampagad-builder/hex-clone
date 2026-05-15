@@ -14,9 +14,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing params" }, { status: 400 });
   }
 
+  // Enforce HTTPS to prevent POST→GET redirect (which yields nginx 405)
+  const baseUrl = metabaseUrl.replace(/\/$/, "").replace(/^http:\/\//i, "https://");
+
   try {
-    const res = await fetch(`${metabaseUrl.replace(/\/$/, "")}/api/dataset`, {
+    const res = await fetch(`${baseUrl}/api/dataset`, {
       method: "POST",
+      redirect: "manual",
       headers: {
         "Content-Type": "application/json",
         ...metabaseHeaders(token, authType),
@@ -28,9 +32,22 @@ export async function POST(req: NextRequest) {
       }),
     });
 
+    // If Metabase redirects (301/302) the POST, the API key / URL is likely wrong
+    if (res.status === 301 || res.status === 302 || res.status === 307 || res.status === 308) {
+      const location = res.headers.get("location") ?? "(unknown)";
+      return NextResponse.json(
+        { error: `Metabase redirected to ${location}. Check the Metabase URL and API key.` },
+        { status: 400 }
+      );
+    }
+
     if (!res.ok) {
-      const err = await res.text();
-      return NextResponse.json({ error: `Query failed: ${err}` }, { status: res.status });
+      const body = await res.text();
+      const detail = body.includes("<!") ? `HTTP ${res.status}` : body;
+      return NextResponse.json(
+        { error: `Metabase returned ${res.status}: ${detail} (URL: ${baseUrl}, authType: ${authType})` },
+        { status: res.status }
+      );
     }
 
     const data = await res.json();

@@ -111,7 +111,12 @@ async function handleExecuteQuery(
   baseUrl: string
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const session = await getSession(args.session_id);
-  if (!session) throw new Error("Session not found. Copy a fresh Session ID from the ConnectPanel.");
+  if (!session) throw new Error("Session not found. Regenerate the Session ID from the ConnectPanel and try again.");
+
+  if (!session.databaseId) throw new Error("No database selected in this session. Select a database in the app first.");
+
+  // Re-derive auth type from token prefix in case it was stored wrong
+  const effectiveAuthType = session.metabaseToken?.startsWith("mb_") ? "apikey" : session.metabaseAuthType;
 
   const res = await fetch(`${baseUrl}/api/metabase/query`, {
     method: "POST",
@@ -119,7 +124,7 @@ async function handleExecuteQuery(
       "Content-Type": "application/json",
       "x-metabase-url": session.metabaseUrl,
       "x-metabase-token": session.metabaseToken,
-      "x-metabase-auth-type": session.metabaseAuthType,
+      "x-metabase-auth-type": effectiveAuthType,
     },
     body: JSON.stringify({ databaseId: session.databaseId, sql: args.sql }),
   });
