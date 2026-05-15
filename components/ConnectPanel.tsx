@@ -32,24 +32,47 @@ export function ConnectPanel({
 
   const { addCell, removeCell, updateCell } = useNotebookStore();
 
-  // Create or recreate session whenever credentials/db change
-  const startSession = useCallback(async () => {
+  // localStorage key tied to credentials — changes when creds/db change
+  const storageKey = `hex_session:${metabaseUrl}:${databaseId}`;
+
+  const createNewSession = useCallback(async (): Promise<string> => {
+    const res = await fetch("/api/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ metabaseUrl, metabaseToken, metabaseAuthType, databaseId, databaseName }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.sessionId) throw new Error(data.error ?? "Failed to create session");
+    return data.sessionId as string;
+  }, [metabaseUrl, metabaseToken, metabaseAuthType, databaseId, databaseName]);
+
+  // On mount / credential change: reuse stored session if still alive, else create new
+  const startSession = useCallback(async (forceNew = false) => {
     if (!metabaseUrl || !metabaseToken || !databaseId) return;
     setConnState("connecting");
     try {
-      const res = await fetch("/api/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ metabaseUrl, metabaseToken, metabaseAuthType, databaseId, databaseName }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.sessionId) throw new Error(data.error ?? "Failed to create session");
-      setSessionId(data.sessionId);
+      let id: string | null = forceNew ? null : localStorage.getItem(storageKey);
+      if (id) {
+        // Validate the stored session is still alive
+        const check = await fetch(`/api/session?session_id=${id}`);
+        if (!check.ok) id = null;
+      }
+      if (!id) {
+        id = await createNewSession();
+        localStorage.setItem(storageKey, id);
+      }
+      setSessionId(id);
       setConnState("connected");
     } catch {
       setConnState("error");
     }
-  }, [metabaseUrl, metabaseToken, metabaseAuthType, databaseId, databaseName]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey, createNewSession]);
+
+  const regenerateSession = useCallback(async () => {
+    localStorage.removeItem(storageKey);
+    await startSession(true);
+  }, [storageKey, startSession]);
 
   useEffect(() => {
     startSession();
@@ -144,7 +167,7 @@ export function ConnectPanel({
         </div>
         {connState === "error" && (
           <button
-            onClick={startSession}
+            onClick={() => startSession()}
             className="text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1"
           >
             <RefreshCw size={10} /> Retry
@@ -208,7 +231,7 @@ export function ConnectPanel({
             <div className="text-xs text-zinc-600 italic">Select a database first…</div>
           )}
           <button
-            onClick={startSession}
+            onClick={regenerateSession}
             disabled={!databaseId}
             className="text-xs text-zinc-600 hover:text-zinc-400 flex items-center gap-1 transition-colors disabled:opacity-40"
           >

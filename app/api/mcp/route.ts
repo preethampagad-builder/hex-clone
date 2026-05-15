@@ -61,7 +61,7 @@ const TOOLS = [
   },
   {
     name: "add_markdown",
-    description: "Add a markdown text cell to the notebook (headings, explanations, analysis summaries).",
+    description: "Add a markdown text cell to the notebook. Only use this when the user explicitly asks for a heading, label, or written explanation — do NOT call this automatically before or after execute_query.",
     inputSchema: {
       type: "object",
       properties: {
